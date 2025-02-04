@@ -7,6 +7,8 @@ This project is a simple Twitter scraper that uses Selenium to log in to X.com (
 - **Login to X.com**: Automates the login process to access the search functionality.
 - **Scrape Tweets**: Collects tweets based on a user-defined keyword.
 - **Save to CSV**: Exports the scraped tweets to a CSV file for easy access and analysis.
+- **Proxy Support** (Untested)
+
 
 ## Prerequisites
 
