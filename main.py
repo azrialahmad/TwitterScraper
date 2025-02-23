@@ -11,11 +11,11 @@ from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException,NoSuchElementException
+from selenium.common.exceptions import TimeoutException
 
 # Function to log in to X.com
 def handle_suspicious_activity(phone_email_field):
-# Prompt user for phone number or email
+    # Prompt user for phone number or email
     phone_or_email = input("Enter your phone number (use country code ex: +1) or email address: ")
     phone_email_field.send_keys(phone_or_email)
     phone_email_field.send_keys(Keys.RETURN)
@@ -27,7 +27,7 @@ def login_to_x(driver, username, password):
 
     # Find the username field and enter the username
     try:
-    # Wait for the username field to be present
+        # Wait for the username field to be present
         username_field = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.NAME, "text"))
         )
@@ -35,7 +35,7 @@ def login_to_x(driver, username, password):
         username_field.send_keys(Keys.RETURN)
         time.sleep(3)  # Wait for the next page to load
 
-    # Check for the phone/email prompt
+        # Check for the phone/email prompt
         try:
             phone_email_field = driver.find_element(By.XPATH, '//input[@name="text"]')
             if phone_email_field.is_displayed():
@@ -44,7 +44,7 @@ def login_to_x(driver, username, password):
         except NoSuchElementException:
             print("No phone/email prompt detected, proceeding to password entry.")
 
-    # Now enter the password
+        # Now enter the password
         password_field = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.NAME, "password"))
         )
@@ -54,13 +54,17 @@ def login_to_x(driver, username, password):
     except TimeoutException:
         print("Login elements not found. Please check the page structure.")
 
-# Function to set up the WebDriver with proxy support
+# Function to set up the WebDriver with proxy support and suppress logs
 def setup_driver(proxy=None, username=None, password=None):
     chrome_options = Options()
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    #achrome_options.add_argument("--headless")
+    #chrome_options.add_argument("--headless")  # Run in headless mode (no GUI)
+
+    # Suppress WebDriver logs
+    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
 
     # If a proxy is provided, set it up
     if proxy:
@@ -100,13 +104,25 @@ def scrape_topic_tweets(driver, keyword, max_tweets=100):
         new_tweets_found = False
 
         for tweet_element in tweet_elements:
-            tweet_text = tweet_element.find_element(By.XPATH, './/div[@data-testid="tweetText"]').text
-            if tweet_text not in tweets:
-                tweets.append(tweet_text)
-                new_tweets_found = True
-                print(f"Scraped tweet: {tweet_text} (Total scraped: {len(tweets)})")
-                if len(tweets) >= max_tweets:
-                    break
+            try:
+                tweet_text = tweet_element.find_element(By.XPATH, './/div[@data-testid="tweetText"]').text
+                username = tweet_element.find_element(By.XPATH, './/div[@data-testid="User-Name"]').text
+                timestamp = tweet_element.find_element(By.XPATH, './/time').get_attribute('datetime')
+                
+                tweet_data = {
+                    'Username': username,
+                    'Text': tweet_text,
+                    'Timestamp': timestamp
+                }
+                
+                if tweet_data not in tweets:
+                    tweets.append(tweet_data)
+                    new_tweets_found = True
+                    print(f"Scraped tweet: {tweet_text} (Total scraped: {len(tweets)})")
+                    if len(tweets) >= max_tweets:
+                        break
+            except NoSuchElementException:
+                continue
 
         if not new_tweets_found:
             attempts += 1
@@ -126,7 +142,7 @@ def scrape_topic_tweets(driver, keyword, max_tweets=100):
 
 # Function to save tweets to a CSV file
 def save_tweets_to_csv(tweets, filename):
-    df = pd.DataFrame(tweets, columns=["Tweet"])
+    df = pd.DataFrame(tweets)
     df.to_csv(filename, index=False)
     print(f"Saved {len(tweets)} tweets to {filename}")
 
@@ -162,7 +178,8 @@ def main():
         tweets = scrape_topic_tweets(driver, keyword, max_tweets)
 
         # Save tweets to CSV
-        save_tweets_to_csv(tweets, "scraped_tweets500.csv")
+        filename = input("Enter the filename to save the tweets (e.g., tweets.csv): ")
+        save_tweets_to_csv(tweets, filename)
 
     except Exception as e:
         print(f"An error occurred: {e}")
